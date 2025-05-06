@@ -14,9 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Swipeable } from 'react-native-gesture-handler';
-
-// Import the CS35L questions
 import { cs35lQuestions } from '../constants/cs35lQ';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
 
 export default function AlarmsScreen() {
   const [alarms, setAlarms] = useState<{ id: string; date: Date; enabled: boolean }[]>([]);
@@ -28,6 +27,7 @@ export default function AlarmsScreen() {
   const [selectedAnswers, setSelectedAnswers] = useState<{ [questionIndex: number]: string }>({});
   const [showAnswerFeedback, setShowAnswerFeedback] = useState(false);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
+  const [questionStatus, setQuestionStatus] = useState<{[key: number]: boolean}>({});
 
   useEffect(() => {
     registerForPushNotifications();
@@ -59,6 +59,7 @@ export default function AlarmsScreen() {
     setAlarmPlaying(true);
     setSelectedAnswers({});
     setShowAnswerFeedback(false);
+    setQuestionStatus({});
     
     // Randomly select two questions
     const shuffledQuestions = [...cs35lQuestions].sort(() => 0.5 - Math.random());
@@ -68,6 +69,14 @@ export default function AlarmsScreen() {
   const stopAlarm = () => {
     setAlarmPlaying(false);
     setCurrentAlarmId(null);
+  };
+
+  // Check if all questions have been answered correctly
+  const allQuestionsCorrect = () => {
+    if (randomQuestions.length === 0) return false;
+    
+    // Check if we have answers for all questions and they're all correct
+    return randomQuestions.every((_, index) => questionStatus[index] === true);
   };
 
   const handleAnswerSelect = (questionIndex: number, selectedOption: string) => {
@@ -80,6 +89,12 @@ export default function AlarmsScreen() {
     const isCorrect = selectedOption === randomQuestions[questionIndex].answer;
     setIsAnswerCorrect(isCorrect);
     setShowAnswerFeedback(true);
+    
+    // Update the question's status
+    setQuestionStatus(prev => ({
+      ...prev,
+      [questionIndex]: isCorrect
+    }));
     
     // Hide feedback after 1.5 seconds
     setTimeout(() => {
@@ -136,9 +151,9 @@ export default function AlarmsScreen() {
     if (triggerTime <= now) {
       triggerTime.setDate(triggerTime.getDate() + 1);
     }
-  
-    // Fix the CALENDAR type issue by using proper string constant
-    const trigger = {
+
+    const trigger: Notifications.NotificationTriggerInput = {
+      type: SchedulableTriggerInputTypes.CALENDAR,
       hour: dateTime.getHours(),
       minute: dateTime.getMinutes(),
       repeats: false,
@@ -252,7 +267,11 @@ export default function AlarmsScreen() {
               <Text style={styles.alarmModalTitle}>⏰ CS35L QUIZ TIME</Text>
               
               {randomQuestions.map((questionItem, qIndex) => (
-                <View key={qIndex} style={styles.questionContainer}>
+                <View key={qIndex} style={[
+                  styles.questionContainer,
+                  questionStatus[qIndex] === true && styles.correctQuestionContainer,
+                  questionStatus[qIndex] === false && styles.incorrectQuestionContainer
+                ]}>
                   <Text style={styles.questionText}>{questionItem.question}</Text>
                   
                   {questionItem.options.map((option, oIndex) => (
@@ -267,6 +286,10 @@ export default function AlarmsScreen() {
                       <Text style={styles.optionText}>{option}</Text>
                     </TouchableOpacity>
                   ))}
+                  
+                  {questionStatus[qIndex] === true && (
+                    <Text style={styles.correctIndicator}>✓ Correct</Text>
+                  )}
                 </View>
               ))}
               
@@ -283,9 +306,15 @@ export default function AlarmsScreen() {
               
               <TouchableOpacity
                 onPress={stopAlarm}
-                style={styles.stopAlarmButton}
+                style={[
+                  styles.stopAlarmButton,
+                  !allQuestionsCorrect() && styles.disabledStopButton
+                ]}
+                disabled={!allQuestionsCorrect()}
               >
-                <Text style={styles.stopAlarmText}>STOP ALARM</Text>
+                <Text style={styles.stopAlarmText}>
+                  {allQuestionsCorrect() ? "STOP ALARM" : "ANSWER ALL QUESTIONS CORRECTLY"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -407,6 +436,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 15,
     borderRadius: 12,
+    position: 'relative',
+  },
+  correctQuestionContainer: {
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+  },
+  incorrectQuestionContainer: {
+    borderWidth: 2,
+    borderColor: '#F44336',
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
   },
   questionText: {
     color: 'white',
@@ -436,10 +476,14 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginTop: 15,
   },
+  disabledStopButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
   stopAlarmText: {
     color: '#0f2e49',
     fontSize: 18,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   feedbackContainer: {
     width: '80%',
@@ -459,5 +503,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  correctIndicator: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });
