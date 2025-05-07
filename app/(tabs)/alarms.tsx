@@ -32,21 +32,18 @@ export default function AlarmsScreen() {
   useEffect(() => {
     registerForPushNotifications();
     
-    // Subscribe to notification received
     const receivedSubscription = Notifications.addNotificationReceivedListener(async notification => {
       const alarmId = notification.request.identifier;
       setCurrentAlarmId(alarmId);
       triggerAlarm();
     });
 
-    // Subscribe to notification response (when user taps on notification)
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
       const alarmId = response.notification.request.identifier;
       setCurrentAlarmId(alarmId);
       triggerAlarm();
     });
 
-    // Clean up subscriptions
     return () => {
       receivedSubscription.remove();
       responseSubscription.remove();
@@ -54,16 +51,14 @@ export default function AlarmsScreen() {
     };
   }, []);
 
-  // Function to trigger alarm (pop up with random questions)
   const triggerAlarm = () => {
     setAlarmPlaying(true);
     setSelectedAnswers({});
     setShowAnswerFeedback(false);
     setQuestionStatus({});
     
-    // Randomly select two questions
     const shuffledQuestions = [...cs35lQuestions].sort(() => 0.5 - Math.random());
-    setRandomQuestions(shuffledQuestions.slice(0, 2)); // Select the first two questions
+    setRandomQuestions(shuffledQuestions.slice(0, 2)); 
   };
 
   const stopAlarm = () => {
@@ -71,11 +66,8 @@ export default function AlarmsScreen() {
     setCurrentAlarmId(null);
   };
 
-  // Check if all questions have been answered correctly
   const allQuestionsCorrect = () => {
     if (randomQuestions.length === 0) return false;
-    
-    // Check if we have answers for all questions and they're all correct
     return randomQuestions.every((_, index) => questionStatus[index] === true);
   };
 
@@ -85,18 +77,15 @@ export default function AlarmsScreen() {
       [questionIndex]: selectedOption
     }));
     
-    // Check if the answer is correct
     const isCorrect = selectedOption === randomQuestions[questionIndex].answer;
     setIsAnswerCorrect(isCorrect);
     setShowAnswerFeedback(true);
     
-    // Update the question's status
     setQuestionStatus(prev => ({
       ...prev,
       [questionIndex]: isCorrect
     }));
     
-    // Hide feedback after 1.5 seconds
     setTimeout(() => {
       setShowAnswerFeedback(false);
     }, 1500);
